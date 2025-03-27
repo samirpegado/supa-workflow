@@ -1,0 +1,34 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: "30 10 * * *" # Executa todo dia às 10:30 UTC
+  workflow_dispatch: # Permite rodar manualmente
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter valor atual do Supabase
+        run: |
+          CURRENT_VALUE=$(curl -s "${{ secrets.SUPABASE_URL }}/rest/v1/users?id=eq.00edebb5-b89f-4ef9-99da-e46ee2fd9404" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" | jq -r '.[0].keep_alive')
+
+          # Se o valor atual for nulo ou vazio, assume 0 como padrão
+          if [[ -z "$CURRENT_VALUE" || "$CURRENT_VALUE" == "null" ]]; then
+            CURRENT_VALUE=0
+          fi
+
+          # Alterna entre 0 e 1
+          NEW_VALUE=$((1 - CURRENT_VALUE))
+
+          echo "Valor atual: $CURRENT_VALUE"
+          echo "Novo valor: $NEW_VALUE"
+
+          # Atualiza o valor no Supabase
+          curl -X PATCH "${{ secrets.SUPABASE_URL }}/rest/v1/users?id=eq.00edebb5-b89f-4ef9-99da-e46ee2fd9404" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{ \"keep_alive\": $NEW_VALUE }"
